@@ -1184,7 +1184,7 @@ def api_compare():
 
 if __name__ == '__main__':
     host = get_local_ip()
-    port = 5001
+    port = 5000
     
     os.makedirs('/tmp/flask_session', exist_ok=True)
     os.makedirs(REPORTS_DIR, exist_ok=True)
