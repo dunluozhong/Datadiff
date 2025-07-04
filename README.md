@@ -1,4 +1,5 @@
 oracle 12c以上 sqlserver 2016以上 
+
 数据库账号能访问系统表
 
 1. 配置python环境及安装相关驱动表
