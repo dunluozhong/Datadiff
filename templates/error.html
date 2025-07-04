@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}错误 - {{ message }}{% endblock %}
+
+{% block content %}
+<div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+        <h4 class="mb-0">发生错误</h4>
+    </div>
+    
+    <div class="card-body">
+        <h5 class="text-danger mb-4">{{ message }}</h5>
+        
+        {% if error %}
+        <div class="alert alert-secondary">
+            <pre class="mb-0">{{ error }}</pre>
+        </div>
+        {% endif %}
+        
+        <div class="mt-4 d-flex gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">返回首页</a>
+            <a href="{{ url_for('list_reports') }}" class="btn btn-outline-secondary">报告列表</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
