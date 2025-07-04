@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ '编辑' if datasource else '添加' }}数据源{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="mb-4">{{ '编辑' if datasource else '添加' }}数据源</h2>
+    
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">名称</label>
+                <input type="text" class="form-control" name="name" 
+                       value="{{ datasource.name if datasource }}" required>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">数据库类型</label>
+                <select class="form-select" name="db_type" required>
+                    <option value="mysql" {% if datasource and datasource.db_type == 'mysql' %}selected{% endif %}>
+                        MySQL
+                    </option>
+                    <option value="postgresql" {% if datasource and datasource.db_type == 'postgresql' %}selected{% endif %}>
+                        PostgreSQL
+                    </option>
+                    <option value="oracle" {% if datasource and datasource.db_type == 'oracle' %}selected{% endif %}>
+                        Oracle
+                    </option>
+                    <option value="mssql" {% if datasource and datasource.db_type == 'mssql' %}selected{% endif %}>
+                        SQL Server
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">主机</label>
+                <input type="text" class="form-control" name="host" 
+                       value="{{ datasource.host if datasource }}" required>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">端口</label>
+                <input type="number" class="form-control" name="port" 
+                       value="{{ datasource.port if datasource else 3306 }}" required>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">数据库名</label>
+                <input type="text" class="form-control" name="database" 
+                       value="{{ datasource.database if datasource }}" required>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">Schema</label>
+                <input type="text" class="form-control" name="schema" 
+                       value="{{ datasource.schema if datasource and 'schema' in datasource else '' }}">
+                <div class="form-text">
+                    PostgreSQL默认: public, 
+                    SQL Server默认: dbo, 
+                    Oracle默认: 用户名大写</div>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">用户名</label>
+                <input type="text" class="form-control" name="username" 
+                       value="{{ datasource.username if datasource }}" required>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label">密码</label>
+                <input type="password" class="form-control" name="password" 
+                       value="{{ datasource.password if datasource }}" required>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">保存</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
