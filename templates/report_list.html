@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}报告列表{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="mb-4">对比报告列表</h2>
+    
+    {% if not reports %}
+        <div class="alert alert-info">暂无报告</div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>报告ID</th>
+                        <th>源数据库</th>
+                        <th>目标数据库</th>
+                        <th>创建时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report_id, report in reports.items() %}
+                    <tr>
+                        <td>{{ report_id }}</td>
+                        <td>{{ report.source }}</td>
+                        <td>{{ report.target }}</td>
+                        <td>{{ report.timestamp }}</td>
+                        <td>
+                            {% if report.status == 'completed' %}
+                                <span class="badge bg-success">已完成</span>
+                            {% elif report.status == 'processing' %}
+                                <span class="badge bg-warning">处理中</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ report.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('view_report', report_id=report_id) }}" 
+                                   class="btn btn-sm btn-outline-primary">查看</a>
+                                <button onclick="deleteReport('{{ report_id }}')" 
+                                        class="btn btn-sm btn-outline-danger">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function deleteReport(reportId) {
+    if(confirm('确定要删除这个报告吗？此操作不可恢复！')) {
+        fetch(`/report/delete/${reportId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if(!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.success) {
+                window.location.reload();
+            } else {
+                alert('删除失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除请求失败: ' + (error.error || error.message || '未知错误'));
+        });
+    }
+}
+</script>
+{% endblock %}
