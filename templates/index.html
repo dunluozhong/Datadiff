@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}数据源管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>数据源列表</h2>
+        <a href="{{ url_for('add_datasource') }}" class="btn btn-primary">
+            添加数据源
+        </a>
+    </div>
+
+    {% if not datasources %}
+        <div class="alert alert-info">暂无数据源</div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>主机</th>
+                        <th>端口</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ds in datasources %}
+                    <tr>
+                        <td>{{ ds.name }}</td>
+                        <td>{{ ds.db_type }}</td>
+                        <td>{{ ds.host }}</td>
+                        <td>{{ ds.port }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_datasource', id=ds.id) }}" 
+                                   class="btn btn-sm btn-outline-secondary">编辑</a>
+                                <form action="{{ url_for('delete_datasource', id=ds.id) }}" 
+                                      method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        删除
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
