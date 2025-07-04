@@ -5,12 +5,13 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 chmod +x Miniconda3-latest-Linux-x86_64.sh
 ./Miniconda3-latest-Linux-x86_64.sh
 source ~/.bashrc
-conda create -n data-diff 'python=3.12' -y     
-conda activate data-diff
+conda create -n Datadiff 'python=3.12' -y     
+conda activate Datadiff
 pip install flask pysqlite3 data-diff psycopg2-binary mysql-connector-python pyodbc oracledb Flask-Session -i https://mirrors.aliyun.com/pypi/simple
 
 
 2. 启动
 git clone https://github.com/dunluozhong/Datadiff
+cd Datadiff
 python app.py
 
