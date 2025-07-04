@@ -16,8 +16,15 @@ conda create -n Datadiff 'python=3.12' -y
 
 conda activate Datadiff
 
+yum install unixODBC unixODBC-devel freetds freetds-devel -y
+
 pip install flask pysqlite3 data-diff psycopg2-binary mysql-connector-python pyodbc oracledb Flask-Session -i https://mirrors.aliyun.com/pypi/simple
 
+非必需
+
+wget https://packages.microsoft.com/rhel/7/prod/msodbcsql18-18.1.2.1-1.x86_64.rpm
+
+ACCEPT_EULA=Y yum localinstall -y msodbcsql18-18.1.2.1-1.x86_64.rpm 
 
 2. 启动
 
