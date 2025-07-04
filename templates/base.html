@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库对比工具 - {% block title %}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- 左侧导航 -->
+        <div class="nav-column">
+            <div class="nav-header">数据库对比工具</div>
+            <ul class="nav-menu">
+                <li>
+                    <a href="{{ url_for('index') }}" class="{% if request.path == url_for('index') %}active{% endif %}">
+                        数据源管理
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('compare_index') }}" class="{% if request.path == url_for('compare_index') %}active{% endif %}">
+                        数据对比
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('list_reports') }}" class="{% if request.path == url_for('list_reports') %}active{% endif %}">
+                        报告列表
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- 右侧内容 -->
+        <div class="content-column">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} mb-4">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
