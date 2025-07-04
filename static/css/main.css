@@ -1,0 +1,83 @@
+/* 基础布局 */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* 导航列样式 */
+.nav-column {
+    width: 250px;
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    position: fixed;
+    height: 100%;
+    overflow-y: auto;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.nav-header {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #34495e;
+}
+
+.nav-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-menu li {
+    margin-bottom: 10px;
+}
+
+.nav-menu a {
+    color: #bdc3c7;
+    text-decoration: none;
+    padding: 10px;
+    display: block;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.nav-menu a:hover {
+    background: #34495e;
+    color: white;
+}
+
+/* 内容区域样式 */
+.content-column {
+    flex: 1;
+    margin-left: 250px;
+    padding: 30px;
+    background: #f5f6fa;
+    min-height: 100vh;
+}
+
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .nav-column {
+        width: 100%;
+        position: relative;
+        height: auto;
+    }
+    
+    .content-column {
+        margin-left: 0;
+        padding: 20px;
+    }
+}
