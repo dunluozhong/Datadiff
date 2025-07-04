@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}数据对比{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="mb-4">数据对比</h2>
+
+    <!-- 数据库选择 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="form-label">源数据库</label>
+                <select class="form-select" id="sourceDb" name="source_id" required>
+                    {% for ds in datasources %}
+                    <option value="{{ ds.id }}">{{ ds.name }} ({{ ds.db_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="form-label">目标数据库</label>
+                <select class="form-select" id="targetDb" name="target_id" required>
+                    {% for ds in datasources %}
+                    <option value="{{ ds.id }}">{{ ds.name }} ({{ ds.db_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对比类型选择 -->
+    <div class="form-group mb-4">
+        <label class="form-label">对比类型</label>
+        <div class="btn-group" role="group" aria-label="对比类型">
+            <input type="radio" class="btn-check" name="compare_type" 
+                   id="type_single" value="single" checked autocomplete="off">
+            <label class="btn btn-outline-primary" for="type_single">单表对比</label>
+
+            <input type="radio" class="btn-check" name="compare_type" 
+                   id="type_multi" value="multi" autocomplete="off">
+            <label class="btn btn-outline-primary" for="type_multi">多表对比</label>
+
+            <input type="radio" class="btn-check" name="compare_type" 
+                   id="type_full" value="full" autocomplete="off">
+            <label class="btn btn-outline-primary" for="type_full">全库对比</label>
+        </div>
+    </div>
+
+    <!-- 单表对比配置 -->
+    <div id="singleTableConfig" class="config-section card mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">单表配置</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">源表</label>
+                        <select class="form-select" id="sourceTable" name="source_table" required>
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">目标表</label>
+                        <select class="form-select" id="targetTable" name="target_table" required>
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">源表键列</label>
+                        <input type="text" class="form-control" id="sourceKeys" 
+                               name="source_keys" placeholder="逗号分隔，如：id,name">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">目标表键列</label>
+                        <input type="text" class="form-control" id="targetKeys" 
+                               name="target_keys" placeholder="逗号分隔，如：id,name">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 多表对比配置 -->
+    <div id="multiTableConfig" class="config-section card mb-4" style="display:none">
+        <div class="card-body">
+            <h5 class="card-title mb-3">多表配置</h5>
+            <button type="button" id="addTablePair" class="btn btn-primary mb-3">
+                <i class="bi bi-plus-circle"></i> 添加表对
+            </button>
+            <div id="tablePairs" class="row g-3"></div>
+        </div>
+    </div>
+
+    <!-- 全库对比提示 -->
+    <div id="fullConfig" class="config-section alert alert-info" style="display:none">
+        <h5 class="alert-heading">全库对比说明</h5>
+        <p class="mb-0">将自动对比两个数据库中所有同名表</p>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="d-flex justify-content-end">
+        <button type="button" id="startCompare" class="btn btn-primary btn-lg">
+            <i class="bi bi-play-circle"></i> 开始对比
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    let retryCount = 0;
+    const maxRetries = {{ MAX_RETRIES|default(20) }};
+    const pollInterval = {{ POLL_INTERVAL|default(3) }};
+    let compareTimeout = {{ COMPARE_TIMEOUT|default(300) }};
+    let startTime = Date.now();
+
+    // 初始化表选择器
+    function initTableSelect(selectElement, placeholder) {
+        $(selectElement).empty().append(
+            $('<option>', {value: '', text: placeholder || '请选择表'})
+        );
+    }
+
+    // 加载表数据
+    function loadTables(dbId, selectElement, placeholder) {
+        return $.post("/get_tables", {source_id: dbId})
+            .done(function(data) {
+                const $select = $(selectElement);
+                $select.empty();
+                
+                if (data.tables && data.tables.length > 0) {
+                    $select.append($('<option>', {value: '', text: placeholder || '请选择表'}));
+                    $.each(data.tables, function(i, table) {
+                        $select.append($('<option>', {
+                            value: table,
+                            text: table
+                        }));
+                    });
+                } else {
+                    $select.append($('<option>', {value: '', text: '无可用表'}));
+                }
+            })
+            .fail(function(xhr) {
+                console.error('加载表失败:', xhr.responseText);
+                $(selectElement).append($('<option>', {value: '', text: '加载失败'}));
+            });
+    }
+
+    // 初始化加载表
+    Promise.all([
+        loadTables($('#sourceDb').val(), '#sourceTable', '选择源表'),
+        loadTables($('#targetDb').val(), '#targetTable', '选择目标表')
+    ]);
+
+    // 数据库切换事件
+    $('#sourceDb, #targetDb').change(function() {
+        const isSource = $(this).attr('id') === 'sourceDb';
+        const selectElement = isSource ? '#sourceTable' : '#targetTable';
+        loadTables($(this).val(), selectElement, isSource ? '选择源表' : '选择目标表');
+    });
+
+    // 对比类型切换
+    $('input[name="compare_type"]').change(function() {
+        $('.config-section').hide();
+        const configType = $(this).val();
+        if (configType === 'full') {
+            $('#fullConfig').show();
+        } else {
+            $('#' + configType + 'TableConfig').show();
+        }
+    });
+
+    // 添加表对
+    $('#addTablePair').click(function() {
+        const index = $('#tablePairs').children().length;
+        const html = `
+            <div class="col-12">
+                <div class="card table-pair">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-5">
+                                <select class="form-select source-table" 
+                                        name="tables[${index}][source_table]" required>
+                                    <option value="">选择源表</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <select class="form-select target-table" 
+                                        name="tables[${index}][target_table]" required>
+                                    <option value="">选择目标表</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-danger w-100 remove-btn">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" 
+                                       name="tables[${index}][source_keys]" 
+                                       placeholder="源表键列 (可选)">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" 
+                                       name="tables[${index}][target_keys]" 
+                                       placeholder="目标表键列 (可选)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('#tablePairs').append(html);
+
+        // 加载源表
+        $.post("/get_tables", {source_id: $('#sourceDb').val()}, function(data) {
+            if (data.tables) {
+                const $select = $('.source-table').last();
+                $select.empty().append('<option value="">选择源表</option>');
+                $.each(data.tables, function(i, table) {
+                    $select.append($('<option>', {
+                        value: table,
+                        text: table
+                    }));
+                });
+            }
+        });
+
+        // 加载目标表
+        $.post("/get_tables", {source_id: $('#targetDb').val()}, function(data) {
+            if (data.tables) {
+                const $select = $('.target-table').last();
+                $select.empty().append('<option value="">选择目标表</option>');
+                $.each(data.tables, function(i, table) {
+                    $select.append($('<option>', {
+                        value: table,
+                        text: table
+                    }));
+                });
+            }
+        });
+
+        // 删除按钮
+        $('.remove-btn').last().click(function() {
+            $(this).closest('.col-12').remove();
+        });
+    });
+
+    // 开始对比
+    $('#startCompare').click(function() {
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="bi bi-arrow-repeat spin"></i> 处理中...');
+        
+        // 重置超时计时器
+        startTime = Date.now();
+        retryCount = 0;
+        
+        const formData = {
+            compare_type: $('input[name="compare_type"]:checked').val(),
+            source_id: $('#sourceDb').val(),
+            target_id: $('#targetDb').val()
+        };
+
+        // 单表对比参数
+        if (formData.compare_type === 'single') {
+            formData.source_table = $('#sourceTable').val();
+            formData.target_table = $('#targetTable').val();
+            formData.source_keys = $('#sourceKeys').val();
+            formData.target_keys = $('#targetKeys').val();
+            
+            if (!formData.source_table || !formData.target_table) {
+                alert('请选择源表和目标表');
+                $btn.prop('disabled', false).html('<i class="bi bi-play-circle"></i> 开始对比');
+                return;
+            }
+        }
+        // 多表对比参数
+        else if (formData.compare_type === 'multi') {
+            const hasTables = $('.table-pair').length > 0;
+            if (!hasTables) {
+                alert('请至少添加一个表对');
+                $btn.prop('disabled', false).html('<i class="bi bi-play-circle"></i> 开始对比');
+                return;
+            }
+            
+            $('.table-pair').each(function(index) {
+                formData[`tables[${index}][source_table]`] = $(this).find('.source-table').val();
+                formData[`tables[${index}][target_table]`] = $(this).find('.target-table').val();
+                formData[`tables[${index}][source_keys]`] = $(this).find('input[name$="[source_keys]"]').val();
+                formData[`tables[${index}][target_keys]`] = $(this).find('input[name$="[target_keys]"]').val();
+            });
+        }
+
+        // 提交请求
+        $.post("/start_compare", formData, function(data) {
+            if (data.status === 'started') {
+                compareTimeout = data.timeout || 300;
+                checkReportStatus(data.report_id);
+            } else {
+                alert('启动失败: ' + (data.error || '未知错误'));
+                $btn.prop('disabled', false).html('<i class="bi bi-play-circle"></i> 开始对比');
+            }
+        }).fail(function(xhr) {
+            alert('请求失败: ' + xhr.responseText);
+            $btn.prop('disabled', false).html('<i class="bi bi-play-circle"></i> 开始对比');
+        });
+    });
+
+    // 检查报告状态
+    function checkReportStatus(reportId) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        
+        // 超时处理
+        if (elapsed >= compareTimeout) {
+            window.location.href = `/report/${reportId}?timeout=1`;
+            return;
+        }
+
+        // 最大重试次数
+        if (retryCount >= maxRetries) {
+            alert('对比超时，请检查报告列表');
+            window.location.href = `/report/${reportId}?timeout=1`;
+            return;
+        }
+
+        $.get(`/report/${reportId}/status`, function(data) {
+            if (data.status === 'completed' || data.status === 'timeout') {
+                window.location.href = `/report/${reportId}`;
+            } else if (data.status === 'error') {
+                alert('对比失败: ' + data.message);
+                $('#startCompare').prop('disabled', false).html('<i class="bi bi-play-circle"></i> 开始对比');
+            } else {
+                retryCount++;
+                setTimeout(() => checkReportStatus(reportId), pollInterval * 1000);
+            }
+        }).fail(function() {
+            retryCount++;
+            setTimeout(() => checkReportStatus(reportId), pollInterval * 1000);
+        });
+    }
+});
+</script>
+<style>
+.bi-arrow-repeat.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
