@@ -92,16 +92,6 @@ class DatabaseInspector:
         # 动态导入驱动
         try:
             module = importlib.import_module(driver_module)
-            # 特别处理Oracle驱动
-            if self.db_type == 'oracle':
-                try:
-                    # 初始化Oracle thick模式客户端
-                    module.init_oracle_client()
-                    logger.info("Oracle thick模式初始化成功")
-                except Exception as e:
-                    err_msg = f"Oracle客户端初始化失败: {str(e)}. "
-                    raise ImportError(err_msg)
-
         except ImportError:
             if package_name:
                 raise ImportError(f"请安装数据库驱动: pip install {package_name}")
