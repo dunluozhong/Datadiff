@@ -2,7 +2,7 @@ oracle 12c以上 sqlserver 2016以上
 
 数据库账号能访问系统表
 
-1. 配置python环境及安装相关驱动表
+# 1. 配置python环境及安装相关驱动表
    
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
@@ -26,7 +26,7 @@ wget https://packages.microsoft.com/rhel/7/prod/msodbcsql18-18.1.2.1-1.x86_64.rp
 
 ACCEPT_EULA=Y yum localinstall -y msodbcsql18-18.1.2.1-1.x86_64.rpm 
 
-2. 启动
+# 2. 启动
 
 git clone https://github.com/dunluozhong/Datadiff
 
