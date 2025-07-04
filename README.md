@@ -18,7 +18,7 @@ conda activate Datadiff
 
 yum install unixODBC unixODBC-devel freetds freetds-devel -y
 
-pip install flask pysqlite3 data-diff psycopg2-binary mysql-connector-python pyodbc oracledb Flask-Session -i https://mirrors.aliyun.com/pypi/simple
+pip install flask pysqlite3 data-diff psycopg2-binary mysql-connector-python pyodbc oracledb Flask-Session
 
 安装sqlserver驱动包(非必需)
 
