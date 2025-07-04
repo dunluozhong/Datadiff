@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库对比实时报告</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            padding-top: 20px;
+            padding-bottom: 40px;
+        }
+        .header-card {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+        }
+        .results-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .status-一致 {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-不一致 {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-警告 {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-错误 {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-处理中 {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .progress-container {
+            height: 28px;
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: #e9ecef;
+        }
+        
+        /* 修复进度条颜色问题 */
+        .progress-bar.progress-low { 
+            background-color: #dc3545 !important;   /* 红色 */
+        }
+        .progress-bar.progress-medium { 
+            background-color: #ffc107 !important;   /* 黄色 */
+        }
+        .progress-bar.progress-high { 
+            background-color: #28a745 !important;  /* 绿色 */
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        .table thead th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(44, 62, 80, 0.05);
+        }
+        .last-update {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .refresh-btn {
+            transition: transform 0.3s ease;
+        }
+        .refresh-btn:hover {
+            transform: rotate(15deg);
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .stat-consistent {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-left: 4px solid #28a745;
+        }
+        .stat-inconsistent {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid #dc3545;
+        }
+        .stat-error {
+            background-color: rgba(108, 117, 125, 0.1);
+            border-left: 4px solid #6c757d;
+        }
+        .stat-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+        }
+        .stat-unmatched {
+            background-color: rgba(23, 162, 184, 0.1);
+            border-left: 4px solid #17a2b8;
+        }
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .page-info {
+            margin: 0 15px;
+            line-height: 38px;
+            white-space: nowrap;
+        }
+        .pagination-btn-group {
+            display: flex;
+            gap: 5px;
+        }
+        .progress-status {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        /* 添加进度文本样式 */
+        .progress-bar-text {
+            position: absolute;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            z-index: 10;
+            line-height: 28px;
+        }
+        .progress-wrapper {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部信息 -->
+        <div class="header-card p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="bi bi-clipboard2-data"></i> 数据库对比实时报告</h1>
+                    <p class="mb-0">报告ID: {{ report_id }}</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a href="{{ url_for('list_reports') }}" class="btn btn-light">
+                        <i class="bi bi-arrow-left"></i> 返回报告列表
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 概览信息 -->
+        <div class="summary-card p-4">
+            <div class="row">
+                <div class="col-md-3">
+                    <p class="mb-1"><strong>源数据库:</strong></p>
+                    <p>{{ report.source_db }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1"><strong>目标数据库:</strong></p>
+                    <p>{{ report.target_db }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1"><strong>开始时间:</strong></p>
+                    <p>{{ report.start_time }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1"><strong>当前状态:</strong></p>
+                    <p>
+                        {% if report.status == 'completed' %}
+                        <span class="status-badge status-一致">已完成</span>
+                        {% elif report.status == 'processing' %}
+                        <span class="status-badge status-处理中">处理中</span>
+                        {% else %}
+                        <span class="status-badge status-错误">错误</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- 进度条（已优化） -->
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>对比进度</span>
+                    <div>
+                        <span id="progress-text">{{ report.progress }}</span>
+                        <span id="progress-percent">({{ progress_percent }}%)</span>
+                    </div>
+                </div>
+                <div class="progress-status">
+                    {% if progress_percent < 30 %}
+                        <span id="progress-status-text" class="text-danger">初始化中...</span>
+                    {% elif progress_percent < 70 %}
+                        <span id="progress-status-text" class="text-warning">进行中...</span>
+                    {% else %}
+                        <span id="progress-status-text" class="text-success">即将完成...</span>
+                    {% endif %}
+                </div>
+                <div class="progress-wrapper">
+                    <div class="progress-container">
+                        <div id="progress-bar" class="progress-bar 
+                            {% if progress_percent < 30 %}progress-low
+                            {% elif progress_percent < 70 %}progress-medium
+                            {% else %}progress-high{% endif %}" 
+                            role="progressbar" style="width: {{ progress_percent }}%">
+                        </div>
+                    </div>
+                    <!-- 进度文本 -->
+                    <div id="progress-bar-text" class="progress-bar-text">{{ progress_percent }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="stat-card stat-consistent">
+                    <div class="stat-label">一致表数</div>
+                    <div class="stat-value" id="stat-consistent">{{ report.summary.consistent }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card stat-inconsistent">
+                    <div class="stat-label">不一致表数</div>
+                    <div class="stat-value" id="stat-inconsistent">{{ report.summary.inconsistent }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card stat-warning">
+                    <div class="stat-label">警告表数</div>
+                    <div class="stat-value" id="stat-warning">{{ report.summary.warnings }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card stat-error">
+                    <div class="stat-label">错误表数</div>
+                    <div class="stat-value" id="stat-error">{{ report.summary.errors }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card stat-unmatched">
+                    <div class="stat-label">未匹配表数</div>
+                    <div class="stat-value" id="stat-unmatched">{{ report.summary.unmatched }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card">
+                    <div class="stat-label">总表数</div>
+                    <div class="stat-value" id="stat-total">{{ report.total_tables }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果表格 -->
+        <div class="results-card">
+            <div class="p-3 border-bottom">
+                <h3><i class="bi bi-table"></i> 表级对比结果</h3>
+            </div>
+            
+            <div class="table-container p-3">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>源表名</th>
+                            <th>目标表名</th>
+                            <th>状态</th>
+                            <th>键情况</th>
+                            <th>差异详情</th>
+                            <th>缺失行</th>
+                            <th>新增行</th>
+                            <th>总差异</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body">
+                        {% for result in report.results %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ result.source_table }}</td>
+                            <td>{{ result.target_table }}</td>
+                            <td>
+                                {% if '一致' in result.status %}
+                                <span class="status-badge status-一致">{{ result.status }}</span>
+                                {% elif '不一致' in result.status %}
+                                <span class="status-badge status-不一致">{{ result.status }}</span>
+                                {% elif '警告' in result.status %}
+                                <span class="status-badge status-警告">{{ result.status }}</span>
+                                {% elif '错误' in result.status %}
+                                <span class="status-badge status-错误">{{ result.status }}</span>
+                                {% else %}
+                                <span class="status-badge">{{ result.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ result.key_info }}</td>
+                            <td>{{ result.diff_detail }}</td>
+                            <td>{{ result.missing_rows }}</td>
+                            <td>{{ result.added_rows }}</td>
+                            <td>{{ result.total_diffs }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控制（已增强） -->
+            <div class="pagination-controls p-3 border-top">
+                <div class="pagination-btn-group">
+                    <button id="first-page" class="btn btn-outline-primary" title="首页" disabled>
+                        <i class="bi bi-chevron-bar-left"></i>
+                    </button>
+                    <button id="prev-page" class="btn btn-outline-primary" disabled>
+                        <i class="bi bi-chevron-left"></i> 上一页
+                    </button>
+                </div>
+                
+                <div class="page-info">
+                    第 <span id="current-page">1</span> 页，共 <span id="total-pages">1</span> 页 |
+                    显示 <span id="current-start">1</span>-<span id="current-end">20</span> 条，共 <span id="total-rows">0</span> 条
+                </div>
+                
+                <div class="pagination-btn-group">
+                    <button id="next-page" class="btn btn-outline-primary" disabled>
+                        下一页 <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button id="last-page" class="btn btn-outline-primary" title="末页" disabled>
+                        <i class="bi bi-chevron-bar-right"></i>
+                    </button>
+                </div>
+                
+                <div class="d-flex align-items-center ms-3">
+                    <span>跳至:</span>
+                    <input type="number" id="jump-page" min="1" value="1" class="form-control form-control-sm mx-2" style="width: 70px;">
+                    <button id="jump-btn" class="btn btn-outline-secondary btn-sm">跳转</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部操作区 -->
+        <div class="mt-4 text-center">
+            {% if report.status == 'completed' %}
+            <a href="{{ url_for('view_report', report_id=report_id) }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-file-earmark-text"></i> 查看最终报告
+            </a>
+            {% else %}
+            <button id="refresh-btn" class="btn btn-primary btn-lg refresh-btn">
+                <i class="bi bi-arrow-repeat"></i> 刷新结果
+            </button>
+            <span class="last-update ms-3" id="last-update">最后更新: {{ now.strftime('%H:%M:%S') }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 分页相关变量
+            const pageSize = 20;
+            let currentPage = 1;
+            let totalPages = 1;
+            let totalRows = 0;
+            
+            // 初始化分页
+            function initPagination() {
+                totalRows = $('#results-body tr').length;
+                totalPages = Math.ceil(totalRows / pageSize);
+                $('#total-rows').text(totalRows);
+                updatePaginationControls();
+                showPage(1);
+            }
+            
+            // 显示指定页
+            function showPage(page) {
+                currentPage = page;
+                $('#results-body tr').hide();
+                const startIndex = (page - 1) * pageSize;
+                const endIndex = Math.min(startIndex + pageSize, totalRows);
+                
+                $('#results-body tr').slice(startIndex, endIndex).show();
+                $('#current-page').text(currentPage);
+                $('#total-pages').text(totalPages);
+                $('#current-start').text(startIndex + 1);
+                $('#current-end').text(endIndex);
+                updatePaginationControls();
+            }
+            
+            // 更新分页控件状态
+            function updatePaginationControls() {
+                $('#first-page').prop('disabled', currentPage <= 1);
+                $('#prev-page').prop('disabled', currentPage <= 1);
+                $('#next-page').prop('disabled', currentPage >= totalPages);
+                $('#last-page').prop('disabled', currentPage >= totalPages);
+                $('#jump-page').val(currentPage);
+            }
+            
+            // 分页按钮事件
+            $('#first-page').click(() => showPage(1));
+            $('#last-page').click(() => showPage(totalPages));
+            $('#prev-page').click(() => {
+                if (currentPage > 1) {
+                    showPage(currentPage - 1);
+                }
+            });
+            $('#next-page').click(() => {
+                if (currentPage < totalPages) {
+                    showPage(currentPage + 1);
+                }
+            });
+            $('#jump-btn').click(() => {
+                const pageNum = Math.min(Math.max(1, parseInt($('#jump-page').val())), totalPages);
+                if (!isNaN(pageNum)) {
+                    showPage(pageNum);
+                }
+            });
+            $('#jump-page').keypress((e) => {
+                if (e.which === 13) { // Enter key
+                    $('#jump-btn').click();
+                }
+            });
+            
+            // 初始化分页
+            initPagination();
+            
+            // 自动刷新逻辑（仅当报告未完成时）
+            {% if report.status != 'completed' %}
+            function refreshReport() {
+                $.ajax({
+                    url: "{{ url_for('get_realtime_report', report_id=report_id) }}",
+                    type: "GET",
+                    success: function(data) {
+                        // 更新最后更新时间
+                        const now = new Date();
+                        const timeStr = now.toTimeString().split(' ')[0];
+                        $('#last-update').text('最后更新: ' + timeStr);
+                        
+                        // 更新进度
+                        const progressParts = data.progress.split('/');
+                        const completed = parseInt(progressParts[0]);
+                        const total = parseInt(progressParts[1]);
+                        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                        
+                        $('#progress-text').text(data.progress);
+                        $('#progress-percent').text('(' + percent + '%)');
+                        $('#progress-bar').css('width', percent + '%');
+                        $('#progress-bar-text').text(percent + '%');
+                        
+                        // 更新进度状态文本
+                        let statusText = '';
+                        let statusClass = '';
+                        if (percent < 30) {
+                            statusText = '初始化中...';
+                            statusClass = 'text-danger';
+                        } else if (percent < 70) {
+                            statusText = '进行中...';
+                            statusClass = 'text-warning';
+                        } else {
+                            statusText = '即将完成...';
+                            statusClass = 'text-success';
+                        }
+                        
+                        // 更新进度条颜色
+                        $('#progress-bar')
+                            .removeClass('progress-low progress-medium progress-high')
+                            .addClass(percent < 30 ? 'progress-low' : 
+                                      percent < 70 ? 'progress-medium' : 'progress-high');
+                        
+                        // 更新进度状态文本
+                        $('#progress-status-text')
+                            .text(statusText)
+                            .removeClass('text-danger text-warning text-success')
+                            .addClass(statusClass);
+                        
+                        // 更新统计信息
+                        $('#stat-consistent').text(data.summary.consistent);
+                        $('#stat-inconsistent').text(data.summary.inconsistent);
+                        $('#stat-warning').text(data.summary.warnings);
+                        $('#stat-error').text(data.summary.errors);
+                        $('#stat-unmatched').text(data.summary.unmatched);
+                        $('#stat-total').text(data.total_tables);
+                        
+                        // 更新结果表格
+                        const tbody = $('#results-body');
+                        tbody.empty();
+                        
+                        data.results.forEach((result, index) => {
+                            let statusClass = '';
+                            let statusText = result.status;
+                            
+                            if (statusText.includes('一致')) {
+                                statusClass = 'status-一致';
+                            } else if (statusText.includes('不一致')) {
+                                statusClass = 'status-不一致';
+                            } else if (statusText.includes('警告')) {
+                                statusClass = 'status-警告';
+                            } else if (statusText.includes('错误')) {
+                                statusClass = 'status-错误';
+                            }
+                            
+                            const row = `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>${result.source_table}</td>
+                                    <td>${result.target_table}</td>
+                                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                    <td>${result.key_info}</td>
+                                    <td>${result.diff_detail}</td>
+                                    <td>${result.missing_rows}</td>
+                                    <td>${result.added_rows}</td>
+                                    <td>${result.total_diffs}</td>
+                                </tr>
+                            `;
+                            tbody.append(row);
+                        });
+                        
+                        // 重新初始化分页
+                        initPagination();
+                        
+                        // 如果是最终报告，重定向
+                        if (data.status === 'completed') {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    }
+                });
+            }
+            
+            // 每10秒自动刷新
+            setInterval(refreshReport, 10000);
+            
+            // 手动刷新按钮
+            $('#refresh-btn').click(refreshReport);
+            {% endif %}
+        });
+    </script>
+</body>
+</html>
