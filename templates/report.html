@@ -1,0 +1,36 @@
+<div class="report-container">
+  <div class="header">
+    <h1>数据库比对报告</h1>
+    <p>源数据库: {{ report.source_db }}</p>
+    <p>目标数据库: {{ report.target_db }}</p>
+    <p>生成时间: {{ report.timestamp }}</p>
+  </div>
+
+  <div class="summary">
+    <h2>统计概览</h2>
+    <table>
+      <tr><td>总表数</td><td>{{ total_tables }}</td></tr>
+      <tr><td>一致表数</td><td class="consistent">{{ consistent_count }}</td></tr>
+      <tr><td>差异表数</td><td class="inconsistent">{{ inconsistent_count }}</td></tr>
+    </table>
+  </div>
+
+  <div class="details">
+    <h2>详细结果</h2>
+    <table>
+      <tr>
+        <th>源表</th><th>目标表</th><th>状态</th>
+        <th>缺失行</th><th>新增行</th>
+      </tr>
+      {% for result in results %}
+      <tr class="{{ 'inconsistent' if '不一致' in result.status }}">
+        <td>{{ result.source_table }}</td>
+        <td>{{ result.target_table }}</td>
+        <td>{{ result.status }}</td>
+        <td>{{ result.missing_rows }}</td>
+        <td>{{ result.added_rows }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
