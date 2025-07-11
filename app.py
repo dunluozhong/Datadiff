@@ -11,11 +11,11 @@ import time
 import json
 import traceback
 from compare import DatabaseInspector, TableDiffReporter, SingleTableDiffReporter
+import re
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.logger.setLevel(logging.DEBUG)
-
 
 app.config.update(
     SESSION_TYPE='filesystem',
@@ -32,9 +32,8 @@ REPORTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'reports')
 os.makedirs(REPORTS_DIR, exist_ok=True)
 MAX_RETRIES = 20
 POLL_INTERVAL = 3
-COMPARE_TIMEOUT = 300  # 5分钟超时
+COMPARE_TIMEOUT = 7200  # 2小时超时
 
-# 新增：数据库URL构建函数
 def build_db_url(db_type, username, password, host, port, database, schema=None):
     """构建带URL编码的数据库连接字符串"""
     
@@ -444,7 +443,6 @@ def start_compare():
             'start_time': time.time(),  # 记录开始时间
             'realtime_report_path': realtime_report_path  # 添加实时报告路径
         }
-        print(compare_params)
 
         # 立即生成初始报告文件
         with open(report_path, 'w', encoding='utf-8') as f:
@@ -459,25 +457,47 @@ def start_compare():
                 'source_table_name': request.form['source_table'],
                 'target_table_name': request.form['target_table'],
                 'source_key_columns': request.form.get('source_keys', ''),
-                'target_key_columns': request.form.get('target_keys', '')
+                'target_key_columns': request.form.get('target_keys', ''),
+                # 添加额外列和WHERE条件
+                'source_extra_columns': request.form.get('source_extra_columns', ''),
+                'target_extra_columns': request.form.get('target_extra_columns', ''),
+                'source_where': request.form.get('source_where', None),
+                'target_where': request.form.get('target_where', None)
             })
         elif compare_params['compare_type'] in ('multi', 'full'):
             table_pairs = []
             key_mappings = {}
+            extra_columns_map = {}  # 新增额外列映射
+            where_map = {}          # 新增WHERE条件映射
             i = 0
             while f'tables[{i}][source_table]' in request.form:
                 source_table = request.form[f'tables[{i}][source_table]']
                 target_table = request.form[f'tables[{i}][target_table]']
                 source_keys = request.form.get(f'tables[{i}][source_keys]', '')
                 target_keys = request.form.get(f'tables[{i}][target_keys]', '')
+                # 获取额外列和WHERE条件
+                source_extra = request.form.get(f'tables[{i}][source_extra_columns]', '')
+                target_extra = request.form.get(f'tables[{i}][target_extra_columns]', '')
+                source_where = request.form.get(f'tables[{i}][source_where]', None)
+                target_where = request.form.get(f'tables[{i}][target_where]', None)
+                
                 table_pairs.append((source_table, target_table))
                 if source_keys or target_keys:
                     key_mappings[source_table] = (source_keys, target_keys)
+                # 存储额外列和WHERE条件
+                if source_extra or target_extra:
+                    extra_columns_map[source_table] = (source_extra, target_extra)
+                if source_where or target_where:
+                    where_map[source_table] = (source_where, target_where)
                 i += 1
             compare_params.update({
                 'table_pairs': table_pairs,
-                'key_mappings': key_mappings
+                'key_mappings': key_mappings,
+                'extra_columns_map': extra_columns_map,  # 添加额外列映射
+                'where_map': where_map                   # 添加WHERE条件映射
             })
+
+        print(compare_params)
         
         # 初始化session中的报告状态
         with app.app_context():
@@ -539,7 +559,12 @@ def run_comparison(params):
                 source_table_name=params['source_table_name'],
                 target_table_name=params['target_table_name'],
                 source_key_columns=params['source_key_columns'],
-                target_key_columns=params['target_key_columns']
+                target_key_columns=params['target_key_columns'],
+                # 修复：添加额外列和WHERE条件参数
+                source_extra_columns=params.get('source_extra_columns', ''),
+                target_extra_columns=params.get('target_extra_columns', ''),
+                source_where=params.get('source_where'),
+                target_where=params.get('target_where')
             )
             result = reporter.execute_comparison()
             html_content = generate_single_report(result, params)
@@ -549,7 +574,10 @@ def run_comparison(params):
                 'db1_url': params['db1_url'],
                 'db2_url': params['db2_url'],
                 'table_pairs': params.get('table_pairs', []),
-                'key_mappings': params.get('key_mappings', {})
+                'key_mappings': params.get('key_mappings', {}),
+                # 修复：添加额外列和WHERE条件映射
+                'extra_columns_map': params.get('extra_columns_map', {}),
+                'where_map': params.get('where_map', {})
             }
             
             # 仅在全库对比时添加实时报告路径
@@ -740,6 +768,19 @@ def generate_timeout_report(params, elapsed):
 
 def generate_single_report(result, params):
     """生成单表对比报告（与多表报告列保持一致）"""
+    # Extract key information components
+    key_info = result.get("键情况", {})
+    key_columns = key_info.get("key_columns", "")
+    extra_columns = key_info.get("extra_columns", "")
+    where_condition = key_info.get("where", "")
+    
+    # Format key information as separate lines
+    formatted_key_info = f"""
+        <div><strong>键列:</strong> {key_columns.split(':')[-1].strip() if ':' in key_columns else key_columns}</div>
+        <div><strong>额外列:</strong> {extra_columns.split(':')[-1].strip() if ':' in extra_columns else extra_columns}</div>
+        <div><strong>过滤条件:</strong> {where_condition.split(':')[-1].strip() if ':' in where_condition else where_condition}</div>
+    """
+    
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -786,6 +827,9 @@ def generate_single_report(result, params):
             border-radius: 5px;
             padding: 15px;
             margin-bottom: 20px;
+        }}
+        .key-info div {{
+            margin-bottom: 5px;
         }}
     </style>
 </head>
@@ -834,7 +878,7 @@ def generate_single_report(result, params):
                 <td>{params['source_table_name']}</td>
                 <td>{params['target_table_name']}</td>
                 <td class="status-cell">{result.get('状态', '')}</td>
-                <td>{result.get('键情况', '')}</td>
+                <td class="key-info">{formatted_key_info}</td>
                 <td>{result.get('差异详情', '')}</td>
                 <td>{result.get('缺失行', 0)}</td>
                 <td>{result.get('新增行', 0)}</td>
@@ -1105,13 +1149,21 @@ def api_compare():
     - target_table_name: 目标表名
     - source_key_columns: 源表键列 (可选，逗号分隔)
     - target_key_columns: 目标表键列 (可选，逗号分隔)
+    - source_extra_columns: 源表额外列 (可选，逗号分隔)
+    - target_extra_columns: 目标表额外列 (可选，逗号分隔)
+    - source_where: 源表WHERE条件 (可选)
+    - target_where: 目标表WHERE条件 (可选)
     
     返回:
     {
         "source_table": ...,
         "target_table": ...,
         "status": ...,
-        "key_info": ...,
+        "key_info": {
+            "key_columns": ...,
+            "extra_columns": ...,
+            "where": ...
+        },
         "diff_detail": ...,
         "missing_rows": ...,
         "added_rows": ...,
@@ -1124,25 +1176,29 @@ def api_compare():
         data = request.get_json()
         
         # 验证必要参数
-        required_fields = ['compare_type', 'db1_url', 'db2_url', 
+        required_fields = ['compare_type', 'db1_url', 'db2_url',
                           'source_table_name', 'target_table_name']
         for field in required_fields:
             if field not in data:
                 return jsonify({
-                    "error": f"Missing required parameter: {field}",
+                    "error": f"缺少必要参数: {field}",
                     "required_fields": required_fields
                 }), 400
         
         # 目前只支持单表对比
         if data['compare_type'] != 'single':
             return jsonify({
-                "error": "Currently only 'single' comparison type is supported",
+                "error": "当前仅支持 'single' 对比类型",
                 "supported_types": ["single"]
             }), 400
         
         # 获取可选参数
         source_key_columns = data.get('source_key_columns', '')
         target_key_columns = data.get('target_key_columns', '')
+        source_extra_columns = data.get('source_extra_columns', '')
+        target_extra_columns = data.get('target_extra_columns', '')
+        source_where = data.get('source_where', None)
+        target_where = data.get('target_where', None)
         
         # 创建对比器
         reporter = SingleTableDiffReporter(
@@ -1151,18 +1207,35 @@ def api_compare():
             source_table_name=data['source_table_name'],
             target_table_name=data['target_table_name'],
             source_key_columns=source_key_columns,
-            target_key_columns=target_key_columns
+            target_key_columns=target_key_columns,
+            source_extra_columns=source_extra_columns,
+            target_extra_columns=target_extra_columns,
+            source_where=source_where,
+            target_where=target_where
         )
         
         # 执行对比
         result = reporter.execute_comparison()
         
-        # 返回标准化的结果（使用英文键名）
+        # 提取键信息
+        key_info_raw = result.get("键情况", {})
+        
+        # 构建标准化的key_info对象
+        key_info = {
+            "key_columns": key_info_raw.get('key_columns', 
+                f"键列: 源->{source_key_columns or '自动检测'}, 目标->: {target_key_columns or '自动检测'}"),
+            "extra_columns": key_info_raw.get('extra_columns', 
+                f"额外列: 源->{source_extra_columns or '无'}, 目标->{target_extra_columns or '无'}"),
+            "where": key_info_raw.get('where', 
+                f"过滤条件: 源->{source_where or '无'}, 目标->{target_where or '无'}")
+        }
+        
+        # 返回标准化的结果
         return jsonify({
             "source_table": result.get("源库表名", data['source_table_name']),
             "target_table": result.get("目标库表名", data['target_table_name']),
-            "status": result.get("状态", "Unknown status"),
-            "key_info": result.get("键情况", ""),
+            "status": result.get("状态", "未知状态"),
+            "key_info": key_info,
             "diff_detail": result.get("差异详情", ""),
             "missing_rows": result.get("缺失行", 0),
             "added_rows": result.get("新增行", 0),
@@ -1173,18 +1246,19 @@ def api_compare():
     except Exception as e:
         # 记录详细错误信息
         error_trace = traceback.format_exc()
-        app.logger.error(f"API comparison failed: {str(e)}\n{error_trace}")
+        app.logger.error(f"API比对失败: {str(e)}\n{error_trace}")
         
         # 返回错误响应
         return jsonify({
-            "error": "Internal server error",
+            "error": "内部服务器错误",
             "message": str(e),
             "traceback": error_trace
         }), 500
 
+
 if __name__ == '__main__':
     host = get_local_ip()
-    port = 5000
+    port = 5001
     
     os.makedirs('/tmp/flask_session', exist_ok=True)
     os.makedirs(REPORTS_DIR, exist_ok=True)
