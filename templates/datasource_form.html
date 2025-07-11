@@ -61,7 +61,8 @@
                 <div class="form-text">
                     PostgreSQL默认: public, 
                     SQL Server默认: dbo, 
-                    Oracle默认: 用户名大写</div>
+                    Oracle默认: 用户名大写
+                </div>
             </div>
             
             <div class="col-md-6">
@@ -77,10 +78,103 @@
             </div>
         </div>
 
+        <!-- 测试连接部分 -->
+        <div class="d-flex gap-2 mb-3">
+            <button type="button" id="testConnection" class="btn btn-info">
+                <i class="bi bi-plug"></i> 测试连接
+            </button>
+            <div id="testResult" class="ms-2 align-self-center"></div>
+        </div>
+
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">保存</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    // 测试连接功能
+    $('#testConnection').click(function() {
+        const $btn = $(this);
+        const $result = $('#testResult');
+        
+        // 收集表单数据
+        const formData = {
+            db_type: $('select[name="db_type"]').val(),
+            host: $('input[name="host"]').val(),
+            port: $('input[name="port"]').val(),
+            database: $('input[name="database"]').val(),
+            username: $('input[name="username"]').val(),
+            password: $('input[name="password"]').val(),
+            schema: $('input[name="schema"]').val()
+        };
+        
+        // 验证必填字段
+        const requiredFields = ['db_type', 'host', 'port', 'database', 'username', 'password'];
+        for (const field of requiredFields) {
+            if (!formData[field]) {
+                $result.html('<span class="text-danger">请填写所有必填字段</span>');
+                return;
+            }
+        }
+        
+        // 检查端口是否有效
+        if (isNaN(parseInt(formData.port)) || parseInt(formData.port) <= 0) {
+            $result.html('<span class="text-danger">端口号必须为有效的正整数</span>');
+            return;
+        }
+        
+        // 禁用按钮并显示加载状态
+        $btn.prop('disabled', true).html('<i class="bi bi-arrow-repeat spin"></i> 测试中...');
+        $result.html('<span class="text-info">正在测试连接...</span>');
+        
+        // 发送测试请求
+        $.ajax({
+            url: "{{ url_for('test_connection') }}",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(formData),
+            success: function(data) {
+                if (data.success) {
+                    $result.html(`<span class="text-success"><i class="bi bi-check-circle"></i> ${data.message} (${data.tables_count}张表)</span>`);
+                } else {
+                    $result.html(`<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.message}</span>`);
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = '连接测试请求失败';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMsg = response.message;
+                    }
+                } catch (e) {}
+                
+                $result.html(`<span class="text-danger"><i class="bi bi-x-circle"></i> ${errorMsg}</span>`);
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="bi bi-plug"></i> 测试连接');
+            }
+        });
+    });
+    
+    // 添加旋转动画
+    $('.spin').parent().css('display', 'inline-block');
+    $('.spin').css({
+        'display': 'inline-block',
+        'animation': 'spin 1s linear infinite'
+    });
+});
+</script>
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
 {% endblock %}
