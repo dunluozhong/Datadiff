@@ -71,16 +71,45 @@
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="form-label">源表键列</label>
+                        <label class="form-label">源表键列 (可选)</label>
                         <input type="text" class="form-control" id="sourceKeys" 
                                name="source_keys" placeholder="逗号分隔，如：id,name">
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="form-label">目标表键列</label>
+                        <label class="form-label">目标表键列 (可选)</label>
                         <input type="text" class="form-control" id="targetKeys" 
                                name="target_keys" placeholder="逗号分隔，如：id,name">
+                    </div>
+                </div>
+                <!-- 新增：额外列和WHERE条件 -->
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">源表额外列 (可选)</label>
+                        <input type="text" class="form-control" id="sourceExtra" 
+                               name="source_extra_columns" placeholder="逗号分隔，如：col1,col2">
+                        <div class="form-text">用于特定列比较，留空比较所有列</div>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label class="form-label">源表WHERE条件 (可选)</label>
+                        <input type="text" class="form-control" id="sourceWhere" 
+                               name="source_where" placeholder="例如：id > 100">
+                        <div class="form-text">用于筛选源表数据</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">目标表额外列 (可选)</label>
+                        <input type="text" class="form-control" id="targetExtra" 
+                               name="target_extra_columns" placeholder="逗号分隔，如：col1,col2">
+                        <div class="form-text">用于特定列比较，留空比较所有列</div>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label class="form-label">目标表WHERE条件 (可选)</label>
+                        <input type="text" class="form-control" id="targetWhere" 
+                               name="target_where" placeholder="例如：id > 100">
+                        <div class="form-text">用于筛选目标表数据</div>
                     </div>
                 </div>
             </div>
@@ -120,7 +149,7 @@ $(document).ready(function() {
     let retryCount = 0;
     const maxRetries = {{ MAX_RETRIES|default(20) }};
     const pollInterval = {{ POLL_INTERVAL|default(3) }};
-    let compareTimeout = {{ COMPARE_TIMEOUT|default(300) }};
+    let compareTimeout = {{ COMPARE_TIMEOUT|default(300) }}; // 5分钟超时
     let startTime = Date.now();
 
     // 初始化表选择器
@@ -217,6 +246,25 @@ $(document).ready(function() {
                                        placeholder="目标表键列 (可选)">
                             </div>
                         </div>
+                        <!-- 新增：额外列和WHERE条件 -->
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" 
+                                       name="tables[${index}][source_extra_columns]" 
+                                       placeholder="源表额外列 (可选)">
+                                <input type="text" class="form-control mt-2" 
+                                       name="tables[${index}][source_where]" 
+                                       placeholder="源表WHERE条件 (可选)">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" 
+                                       name="tables[${index}][target_extra_columns]" 
+                                       placeholder="目标表额外列 (可选)">
+                                <input type="text" class="form-control mt-2" 
+                                       name="tables[${index}][target_where]" 
+                                       placeholder="目标表WHERE条件 (可选)">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -278,6 +326,11 @@ $(document).ready(function() {
             formData.target_table = $('#targetTable').val();
             formData.source_keys = $('#sourceKeys').val();
             formData.target_keys = $('#targetKeys').val();
+            // 添加额外列和WHERE条件
+            formData.source_extra_columns = $('#sourceExtra').val();
+            formData.target_extra_columns = $('#targetExtra').val();
+            formData.source_where = $('#sourceWhere').val();
+            formData.target_where = $('#targetWhere').val();
             
             if (!formData.source_table || !formData.target_table) {
                 alert('请选择源表和目标表');
@@ -299,6 +352,11 @@ $(document).ready(function() {
                 formData[`tables[${index}][target_table]`] = $(this).find('.target-table').val();
                 formData[`tables[${index}][source_keys]`] = $(this).find('input[name$="[source_keys]"]').val();
                 formData[`tables[${index}][target_keys]`] = $(this).find('input[name$="[target_keys]"]').val();
+                // 添加额外列和WHERE条件
+                formData[`tables[${index}][source_extra_columns]`] = $(this).find('input[name$="[source_extra_columns]"]').val();
+                formData[`tables[${index}][target_extra_columns]`] = $(this).find('input[name$="[target_extra_columns]"]').val();
+                formData[`tables[${index}][source_where]`] = $(this).find('input[name$="[source_where]"]').val();
+                formData[`tables[${index}][target_where]`] = $(this).find('input[name$="[target_where]"]').val();
             });
         }
 
